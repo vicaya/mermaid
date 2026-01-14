@@ -65,7 +65,7 @@ function updateConnectedEdges(
     const pathId = path.attr('id') || '';
 
     // Check if this edge connects to the moved node using precise pattern matching
-    if (nodeIdPattern.test(pathId)) {
+    if (nodeIdPattern.exec(pathId)) {
       // Get the path element and add visual feedback
       const pathElem = path.select('path');
       if (pathElem.size() > 0) {
@@ -79,7 +79,7 @@ function updateConnectedEdges(
   edgeLabels.each(function () {
     const label = select(this);
     const labelId = label.attr('id') || '';
-    if (nodeIdPattern.test(labelId)) {
+    if (nodeIdPattern.exec(labelId)) {
       label.classed('edge-label-updated', true);
     }
   });
@@ -690,10 +690,11 @@ You have to call mermaid.initialize.`
     // Click to highlight functionality
     nodes.on('click', function (this: Element, e: MouseEvent) {
       e.stopPropagation();
-      const node = select(this);
+      const currentNode = e.currentTarget as Element;
+      const node = select(currentNode);
 
       // If clicking on the already highlighted node, deselect it
-      if (this === highlightedNode) {
+      if (currentNode === highlightedNode) {
         node.classed('highlighted', false);
         // Restore original styles
         const shape = node.select(NODE_SHAPE_SELECTOR);
@@ -735,7 +736,7 @@ You have to call mermaid.initialize.`
           shape.style('fill', highlightFill);
         }
       }
-      highlightedNode = this;
+      highlightedNode = currentNode;
     });
 
     // Click on SVG background to deselect
@@ -771,7 +772,8 @@ You have to call mermaid.initialize.`
         let x = 0;
         let y = 0;
         if (currentTransform) {
-          const match = currentTransform.match(/translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/);
+          const translateRegex = /translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/;
+          const match = translateRegex.exec(currentTransform);
           if (match) {
             x = parseFloat(match[1]);
             y = parseFloat(match[2]);
