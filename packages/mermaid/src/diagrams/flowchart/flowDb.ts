@@ -233,15 +233,49 @@ function updateConnectedEdges(
     pathElem.classed('edge-updated', true);
   });
 
-  // Update edge labels
+  // Build a list of edge IDs that connect to the dragged node
+  const connectedEdgeIds: Set<string> = new Set();
+  let hasSourceAndTargetEdge = false;
+  
+  edgePathsGroup.selectAll('path').each(function () {
+    const pathElem = select(this);
+    const pathId = pathElem.attr('id') || '';
+    
+    const pathIsSource = sourcePattern.exec(pathId) !== null;
+    const pathIsTarget = targetPattern.exec(pathId) !== null;
+    
+    if (pathIsSource || pathIsTarget) {
+      connectedEdgeIds.add(pathId);
+      if (pathIsSource && pathIsTarget) {
+        hasSourceAndTargetEdge = true;
+      }
+    }
+  });
+
+  // Update edge labels - only for labels that belong to edges connected to the dragged node
+  // Edge labels have an id attribute that matches the edge path id pattern
   edgeLabelsGroup.selectAll('.edgeLabel').each(function () {
     const label = select(this);
-    // Edge labels may have an id attribute on a child element
-    const labelSpan = label.select('span');
-    const labelForeignObject = label.select('foreignObject');
     
-    // Try to find the edge this label belongs to by looking at nearby edges
-    // The label's position should correspond to an edge's midpoint
+    // Get label's id - it may be on the label element or a child foreignObject
+    let labelId = label.attr('id') || '';
+    
+    // If no id on the label, try to find one in a child element
+    if (!labelId) {
+      const foreignObject = label.select('foreignObject');
+      if (!foreignObject.empty()) {
+        labelId = foreignObject.attr('id') || '';
+      }
+    }
+    
+    // Check if this label's id corresponds to a connected edge
+    // Edge labels often have ids like "L_A_B_0" matching their edge
+    const labelIsConnected = connectedEdgeIds.has(labelId);
+    
+    if (!labelIsConnected) {
+      return;
+    }
+    
     const labelTransform = label.attr('transform') || '';
     const translateMatch = /translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/.exec(labelTransform);
     
@@ -249,35 +283,11 @@ function updateConnectedEdges(
       return;
     }
 
-    // Check each edge to see if this label might be associated with it
-    // We'll use a simple approach: if the label is near an edge that connects to our node, move it
-    let shouldMove = false;
-    let isSourceAndTarget = false;
-    
-    edgePathsGroup.selectAll('path').each(function () {
-      const pathElem = select(this);
-      const pathId = pathElem.attr('id') || '';
-      
-      const pathIsSource = sourcePattern.exec(pathId) !== null;
-      const pathIsTarget = targetPattern.exec(pathId) !== null;
-      
-      if (pathIsSource || pathIsTarget) {
-        shouldMove = true;
-        if (pathIsSource && pathIsTarget) {
-          isSourceAndTarget = true;
-        }
-      }
-    });
-    
-    if (!shouldMove) {
-      return;
-    }
-
     let x = parseFloat(translateMatch[1]);
     let y = parseFloat(translateMatch[2]);
 
     // Move label proportionally (half the distance since label is usually in the middle)
-    if (isSourceAndTarget) {
+    if (hasSourceAndTargetEdge) {
       // Edge connects same node to itself - move fully
       x += dx;
       y += dy;
