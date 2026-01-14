@@ -37,50 +37,258 @@ const MERMAID_DOM_ID_PREFIX = 'flowchart-';
 const NODE_SHAPE_SELECTOR = '.label-container, rect, circle, ellipse, polygon, path';
 
 /**
+ * Parse an SVG path d attribute and extract points.
+ * Handles M (moveto), L (lineto), C (curveto), Q (quadratic), and other path commands.
+ * @param d - The path d attribute string
+ * @returns Array of point objects with x, y coordinates and optional control points
+ */
+function parsePathD(d: string): Array<{ cmd: string; x: number; y: number; points?: number[] }> {
+  const result: Array<{ cmd: string; x: number; y: number; points?: number[] }> = [];
+  // Match path commands with their coordinates
+  const regex = /([MLHVCSQTAZ])([^MLHVCSQTAZ]*)/gi;
+  let match;
+
+  while ((match = regex.exec(d)) !== null) {
+    const cmd = match[1].toUpperCase();
+    const args = match[2]
+      .trim()
+      .split(/[\s,]+/)
+      .filter((s) => s.length > 0)
+      .map(parseFloat);
+
+    switch (cmd) {
+      case 'M':
+      case 'L':
+      case 'T':
+        // Move/Line/Smooth quadratic: x, y
+        for (let i = 0; i < args.length; i += 2) {
+          result.push({ cmd, x: args[i], y: args[i + 1] });
+        }
+        break;
+      case 'H':
+        // Horizontal line: x
+        result.push({ cmd, x: args[0], y: result.length > 0 ? result[result.length - 1].y : 0 });
+        break;
+      case 'V':
+        // Vertical line: y
+        result.push({ cmd, x: result.length > 0 ? result[result.length - 1].x : 0, y: args[0] });
+        break;
+      case 'C':
+        // Cubic bezier: x1, y1, x2, y2, x, y
+        for (let i = 0; i < args.length; i += 6) {
+          result.push({
+            cmd,
+            x: args[i + 4],
+            y: args[i + 5],
+            points: [args[i], args[i + 1], args[i + 2], args[i + 3]],
+          });
+        }
+        break;
+      case 'S':
+        // Smooth cubic bezier: x2, y2, x, y
+        for (let i = 0; i < args.length; i += 4) {
+          result.push({ cmd, x: args[i + 2], y: args[i + 3], points: [args[i], args[i + 1]] });
+        }
+        break;
+      case 'Q':
+        // Quadratic bezier: x1, y1, x, y
+        for (let i = 0; i < args.length; i += 4) {
+          result.push({ cmd, x: args[i + 2], y: args[i + 3], points: [args[i], args[i + 1]] });
+        }
+        break;
+      case 'A':
+        // Arc: rx, ry, x-axis-rotation, large-arc-flag, sweep-flag, x, y
+        for (let i = 0; i < args.length; i += 7) {
+          result.push({
+            cmd,
+            x: args[i + 5],
+            y: args[i + 6],
+            points: [args[i], args[i + 1], args[i + 2], args[i + 3], args[i + 4]],
+          });
+        }
+        break;
+      case 'Z':
+        // Close path - no coordinates
+        break;
+    }
+  }
+  return result;
+}
+
+/**
+ * Reconstruct an SVG path d attribute from parsed points.
+ * @param points - Array of parsed path points
+ * @returns The reconstructed path d attribute string
+ */
+function reconstructPathD(
+  points: Array<{ cmd: string; x: number; y: number; points?: number[] }>
+): string {
+  return points
+    .map((p) => {
+      switch (p.cmd) {
+        case 'M':
+        case 'L':
+        case 'T':
+          return `${p.cmd}${p.x},${p.y}`;
+        case 'H':
+          return `H${p.x}`;
+        case 'V':
+          return `V${p.y}`;
+        case 'C':
+          return `C${p.points![0]},${p.points![1]} ${p.points![2]},${p.points![3]} ${p.x},${p.y}`;
+        case 'S':
+          return `S${p.points![0]},${p.points![1]} ${p.x},${p.y}`;
+        case 'Q':
+          return `Q${p.points![0]},${p.points![1]} ${p.x},${p.y}`;
+        case 'A':
+          return `A${p.points![0]},${p.points![1]} ${p.points![2]} ${p.points![3]},${p.points![4]} ${p.x},${p.y}`;
+        default:
+          return '';
+      }
+    })
+    .join(' ');
+}
+
+/**
  * Helper function to update connected edges when a node is dragged.
- * Note: This provides visual feedback but does not recalculate edge paths.
- * Full path recalculation would require complex geometry calculations.
+ * Updates edge paths to follow the moved node by adjusting start/end points.
  * @param svg - The SVG selection
  * @param nodeId - The ID of the node being dragged
- * @param _newX - The new X position (reserved for future path recalculation)
- * @param _newY - The new Y position (reserved for future path recalculation)
+ * @param dx - The delta X movement
+ * @param dy - The delta Y movement
  */
 function updateConnectedEdges(
   svg: ReturnType<typeof select>,
   nodeId: string,
-  _newX: number,
-  _newY: number
+  dx: number,
+  dy: number
 ) {
-  // Find edges that connect to this node
-  const edgePaths = svg.selectAll('.edgePath');
-  const edgeLabels = svg.selectAll('.edgeLabel');
+  // Find edge paths - they are direct children of .edgePaths group with IDs like L_A_B_0
+  const edgePathsGroup = svg.select('.edgePaths');
+  const edgeLabelsGroup = svg.select('.edgeLabels');
 
-  // Create a regex pattern that matches the node ID as a complete word/segment
-  // This prevents matching 'A' in 'DATA' or 'ATLANTA'
-  const nodeIdPattern = new RegExp(`(^|[_-])${nodeId}([_-]|$)`);
+  // Create regex patterns to match edge IDs
+  // Edge IDs follow pattern like "L_A_B_0" where A is source and B is target
+  // Also handle flowchart style node IDs like "flowchart-A-0"
+  const cleanNodeId = nodeId.replace(/^flowchart-/, '').replace(/-\d+$/, '');
 
-  edgePaths.each(function () {
-    const path = select(this);
-    const pathId = path.attr('id') || '';
+  // Pattern to detect if this node is the SOURCE of the edge (appears after L_)
+  const sourcePattern = new RegExp(`^L_${cleanNodeId}_`);
+  // Pattern to detect if this node is the TARGET of the edge (appears before the final number)
+  const targetPattern = new RegExp(`_${cleanNodeId}_\\d+$`);
 
-    // Check if this edge connects to the moved node using precise pattern matching
-    if (nodeIdPattern.exec(pathId)) {
-      // Get the path element and add visual feedback
-      const pathElem = path.select('path');
-      if (pathElem.size() > 0) {
-        // Mark edge for visual feedback - full path recalculation is not implemented
-        pathElem.classed('edge-updated', true);
+  // Update edge paths
+  edgePathsGroup.selectAll('path').each(function () {
+    const pathElem = select(this);
+    const pathId = pathElem.attr('id') || '';
+
+    const currentD = pathElem.attr('d');
+    if (!currentD) {
+      return;
+    }
+
+    // Parse the path
+    const points = parsePathD(currentD);
+    if (points.length < 2) {
+      return;
+    }
+
+    const isSource = sourcePattern.exec(pathId) !== null;
+    const isTarget = targetPattern.exec(pathId) !== null;
+
+    if (!isSource && !isTarget) {
+      return;
+    }
+
+    // Update points based on whether this node is source or target
+    if (isSource) {
+      // Update the first point(s) - the start of the path
+      points[0].x += dx;
+      points[0].y += dy;
+      // If there are control points, adjust them too for smooth curves
+      if (points.length > 1 && points[1].points) {
+        points[1].points[0] += dx;
+        points[1].points[1] += dy;
       }
     }
+
+    if (isTarget) {
+      // Update the last point(s) - the end of the path
+      const lastIdx = points.length - 1;
+      points[lastIdx].x += dx;
+      points[lastIdx].y += dy;
+      // If this point has control points, adjust the last control point
+      if (points[lastIdx].points && points[lastIdx].points!.length >= 4) {
+        const cp = points[lastIdx].points!;
+        cp[cp.length - 2] += dx;
+        cp[cp.length - 1] += dy;
+      }
+    }
+
+    // Reconstruct and apply the new path
+    const newD = reconstructPathD(points);
+    pathElem.attr('d', newD);
+
+    // Add visual feedback class
+    pathElem.classed('edge-updated', true);
   });
 
-  // Update edge labels that might need repositioning
-  edgeLabels.each(function () {
+  // Update edge labels
+  edgeLabelsGroup.selectAll('.edgeLabel').each(function () {
     const label = select(this);
-    const labelId = label.attr('id') || '';
-    if (nodeIdPattern.exec(labelId)) {
-      label.classed('edge-label-updated', true);
+    // Edge labels may have an id attribute on a child element
+    const labelSpan = label.select('span');
+    const labelForeignObject = label.select('foreignObject');
+    
+    // Try to find the edge this label belongs to by looking at nearby edges
+    // The label's position should correspond to an edge's midpoint
+    const labelTransform = label.attr('transform') || '';
+    const translateMatch = /translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/.exec(labelTransform);
+    
+    if (!translateMatch) {
+      return;
     }
+
+    // Check each edge to see if this label might be associated with it
+    // We'll use a simple approach: if the label is near an edge that connects to our node, move it
+    let shouldMove = false;
+    let isSourceAndTarget = false;
+    
+    edgePathsGroup.selectAll('path').each(function () {
+      const pathElem = select(this);
+      const pathId = pathElem.attr('id') || '';
+      
+      const pathIsSource = sourcePattern.exec(pathId) !== null;
+      const pathIsTarget = targetPattern.exec(pathId) !== null;
+      
+      if (pathIsSource || pathIsTarget) {
+        shouldMove = true;
+        if (pathIsSource && pathIsTarget) {
+          isSourceAndTarget = true;
+        }
+      }
+    });
+    
+    if (!shouldMove) {
+      return;
+    }
+
+    let x = parseFloat(translateMatch[1]);
+    let y = parseFloat(translateMatch[2]);
+
+    // Move label proportionally (half the distance since label is usually in the middle)
+    if (isSourceAndTarget) {
+      // Edge connects same node to itself - move fully
+      x += dx;
+      y += dy;
+    } else {
+      // Move label half the distance to stay centered on edge
+      x += dx / 2;
+      y += dy / 2;
+    }
+
+    label.attr('transform', `translate(${x}, ${y})`);
+    label.classed('edge-label-updated', true);
   });
 }
 
@@ -750,8 +958,8 @@ You have to call mermaid.initialize.`
         // Get node ID for edge updates
         const nodeId = node.attr('data-id') || node.attr('id') || '';
 
-        // Update connected edges
-        updateConnectedEdges(svg, nodeId, newX, newY);
+        // Update connected edges with the delta movement
+        updateConnectedEdges(svg, nodeId, event.dx, event.dy);
       })
       .on('end', function () {
         select(this).classed('dragging', false);
