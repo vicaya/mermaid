@@ -1,5 +1,4 @@
 import { select, drag } from 'd3';
-import type { DragBehavior, SubjectPosition } from 'd3';
 import * as yaml from 'js-yaml';
 import { getConfig, defaultConfig } from '../../diagram-api/diagramAPI.js';
 import type { DiagramDB } from '../../diagram-api/types.js';
@@ -678,7 +677,7 @@ You have to call mermaid.initialize.`
     }
 
     const svg = select(element).select('svg');
-    const nodes = svg.selectAll('g.node');
+    const nodes = svg.selectAll<SVGGElement, unknown>('g.node');
     const highlightStyle = flowchartConfig.highlightStyle || {};
     const defaultStroke = highlightStyle.stroke || '#ff0000';
     const defaultStrokeWidth = highlightStyle.strokeWidth || '2px';
@@ -688,7 +687,7 @@ You have to call mermaid.initialize.`
     let highlightedNode: Element | null = null;
 
     // Click to highlight functionality
-    nodes.on('click', function (this: Element, e: MouseEvent) {
+    nodes.on('click', function (e: MouseEvent) {
       e.stopPropagation();
       const currentNode = e.currentTarget as Element;
       const node = select(currentNode);
@@ -758,12 +757,12 @@ You have to call mermaid.initialize.`
     });
 
     // Drag to rearrange functionality
-    const dragHandler = drag<Element, unknown>()
-      .on('start', function (this: Element) {
+    const dragHandler = drag<SVGGElement, unknown>()
+      .on('start', function () {
         select(this).classed('dragging', true);
         select(this).raise(); // Bring to front
       })
-      .on('drag', function (this: Element, event) {
+      .on('drag', function (event) {
         // Get the current transform
         const node = select(this);
         const currentTransform = node.attr('transform');
@@ -791,13 +790,12 @@ You have to call mermaid.initialize.`
         // Update connected edges
         updateConnectedEdges(svg, nodeId, newX, newY);
       })
-      .on('end', function (this: Element) {
+      .on('end', function () {
         select(this).classed('dragging', false);
       });
 
     // Apply drag handler to nodes
-    // Cast is needed because d3's call() has complex generic types that don't align perfectly
-    nodes.call(dragHandler as DragBehavior<Element, unknown, SubjectPosition>);
+    nodes.call(dragHandler);
 
     // Make nodes show grab cursor
     nodes.style('cursor', 'grab');
