@@ -2174,6 +2174,9 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
         type: object
         description: |
           Configuration for node highlight styles when enableInteraction is true.
+        default:
+          stroke: '#ff0000'
+          strokeWidth: '2px'
         properties:
           stroke:
             type: string
