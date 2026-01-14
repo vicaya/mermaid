@@ -686,59 +686,7 @@ You have to call mermaid.initialize.`
     // Track currently highlighted node
     let highlightedNode: Element | null = null;
 
-    // Click to highlight functionality
-    nodes.on('click', function (e: MouseEvent) {
-      e.stopPropagation();
-      const currentNode = e.currentTarget as Element;
-      const node = select(currentNode);
-
-      // If clicking on the already highlighted node, deselect it
-      if (currentNode === highlightedNode) {
-        node.classed('highlighted', false);
-        // Restore original styles
-        const shape = node.select(NODE_SHAPE_SELECTOR);
-        if (shape.size() > 0) {
-          shape
-            .style('stroke', null)
-            .style('stroke-width', null);
-          if (highlightFill) {
-            shape.style('fill', null);
-          }
-        }
-        highlightedNode = null;
-        return;
-      }
-
-      // Deselect previously highlighted node
-      if (highlightedNode) {
-        const prevNode = select(highlightedNode);
-        prevNode.classed('highlighted', false);
-        const prevShape = prevNode.select(NODE_SHAPE_SELECTOR);
-        if (prevShape.size() > 0) {
-          prevShape
-            .style('stroke', null)
-            .style('stroke-width', null);
-          if (highlightFill) {
-            prevShape.style('fill', null);
-          }
-        }
-      }
-
-      // Highlight the clicked node
-      node.classed('highlighted', true);
-      const shape = node.select(NODE_SHAPE_SELECTOR);
-      if (shape.size() > 0) {
-        shape
-          .style('stroke', defaultStroke)
-          .style('stroke-width', defaultStrokeWidth);
-        if (highlightFill) {
-          shape.style('fill', highlightFill);
-        }
-      }
-      highlightedNode = currentNode;
-    });
-
-    // Click on SVG background to deselect
+    // Click on SVG background to deselect any highlighted node
     svg.on('click', function () {
       if (highlightedNode) {
         const node = select(highlightedNode);
@@ -756,13 +704,19 @@ You have to call mermaid.initialize.`
       }
     });
 
+    // Track drag state
+    let hasDragged = false;
+
     // Drag to rearrange functionality
     const dragHandler = drag<SVGGElement, unknown>()
+      .clickDistance(3) // Allow clicks if mouse moved less than 3 pixels
       .on('start', function () {
+        hasDragged = false;
         select(this).classed('dragging', true);
         select(this).raise(); // Bring to front
       })
       .on('drag', function (event) {
+        hasDragged = true;
         // Get the current transform
         const node = select(this);
         const currentTransform = node.attr('transform');
@@ -792,6 +746,57 @@ You have to call mermaid.initialize.`
       })
       .on('end', function () {
         select(this).classed('dragging', false);
+        
+        // If no drag occurred, treat as a click for highlighting
+        if (!hasDragged) {
+          const currentNode = this as Element;
+          const node = select(currentNode);
+
+          // If clicking on the already highlighted node, deselect it
+          if (currentNode === highlightedNode) {
+            node.classed('highlighted', false);
+            // Restore original styles
+            const shape = node.select(NODE_SHAPE_SELECTOR);
+            if (shape.size() > 0) {
+              shape
+                .style('stroke', null)
+                .style('stroke-width', null);
+              if (highlightFill) {
+                shape.style('fill', null);
+              }
+            }
+            highlightedNode = null;
+            return;
+          }
+
+          // Deselect previously highlighted node
+          if (highlightedNode) {
+            const prevNode = select(highlightedNode);
+            prevNode.classed('highlighted', false);
+            const prevShape = prevNode.select(NODE_SHAPE_SELECTOR);
+            if (prevShape.size() > 0) {
+              prevShape
+                .style('stroke', null)
+                .style('stroke-width', null);
+              if (highlightFill) {
+                prevShape.style('fill', null);
+              }
+            }
+          }
+
+          // Highlight the clicked node
+          node.classed('highlighted', true);
+          const shape = node.select(NODE_SHAPE_SELECTOR);
+          if (shape.size() > 0) {
+            shape
+              .style('stroke', defaultStroke)
+              .style('stroke-width', defaultStrokeWidth);
+            if (highlightFill) {
+              shape.style('fill', highlightFill);
+            }
+          }
+          highlightedNode = currentNode;
+        }
       });
 
     // Apply drag handler to nodes
