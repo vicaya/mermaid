@@ -323,6 +323,31 @@ export interface FlowchartDiagramConfig extends BaseDiagramConfig {
    *
    */
   inheritDir?: boolean;
+  /**
+   * Enables interactive features for flowchart nodes:
+   * - Click to highlight a node
+   * - Drag to rearrange nodes while keeping edges connected
+   *
+   */
+  enableInteraction?: boolean;
+  /**
+   * Configuration for node highlight styles when enableInteraction is true.
+   *
+   */
+  highlightStyle?: {
+    /**
+     * The stroke color for highlighted nodes.
+     */
+    stroke?: string;
+    /**
+     * The stroke width for highlighted nodes.
+     */
+    strokeWidth?: string;
+    /**
+     * The fill color for highlighted nodes. If not specified, uses the original fill.
+     */
+    fill?: string;
+  };
 }
 /**
  * This interface was referenced by `MermaidConfig`'s JSON-Schema

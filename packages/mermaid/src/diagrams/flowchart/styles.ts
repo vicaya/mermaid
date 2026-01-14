@@ -178,6 +178,35 @@ const getStyles = (options: FlowChartStyleOptions) =>
     }
     text-align: center;
   }
+
+  /* Interactive node styles */
+  .node.highlighted {
+    cursor: pointer;
+  }
+
+  .node.highlighted rect,
+  .node.highlighted circle,
+  .node.highlighted ellipse,
+  .node.highlighted polygon,
+  .node.highlighted path,
+  .node.highlighted .label-container {
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.3));
+  }
+
+  .node.dragging {
+    cursor: grabbing !important;
+    opacity: 0.8;
+  }
+
+  .node.dragging rect,
+  .node.dragging circle,
+  .node.dragging ellipse,
+  .node.dragging polygon,
+  .node.dragging path,
+  .node.dragging .label-container {
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+  }
+
   ${getIconStyles()}
 `;
 
