@@ -2164,7 +2164,7 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
 
       enableInteraction:
         type: boolean
-        default: false
+        default: true
         description: |
           Enables interactive features for flowchart nodes:
           - Click to highlight a node
