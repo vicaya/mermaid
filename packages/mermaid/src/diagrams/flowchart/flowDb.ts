@@ -1,4 +1,5 @@
 import { select, drag } from 'd3';
+import type { DragBehavior, SubjectPosition } from 'd3';
 import * as yaml from 'js-yaml';
 import { getConfig, defaultConfig } from '../../diagram-api/diagramAPI.js';
 import type { DiagramDB } from '../../diagram-api/types.js';
@@ -33,37 +34,43 @@ interface LinkData {
 
 const MERMAID_DOM_ID_PREFIX = 'flowchart-';
 
+/** CSS selector for node shape elements */
+const NODE_SHAPE_SELECTOR = '.label-container, rect, circle, ellipse, polygon, path';
+
 /**
  * Helper function to update connected edges when a node is dragged.
- * This recalculates edge paths to maintain connections.
+ * Note: This provides visual feedback but does not recalculate edge paths.
+ * Full path recalculation would require complex geometry calculations.
+ * @param svg - The SVG selection
+ * @param nodeId - The ID of the node being dragged
+ * @param _newX - The new X position (reserved for future path recalculation)
+ * @param _newY - The new Y position (reserved for future path recalculation)
  */
 function updateConnectedEdges(
   svg: ReturnType<typeof select>,
   nodeId: string,
-  newX: number,
-  newY: number
+  _newX: number,
+  _newY: number
 ) {
   // Find edges that connect to this node
   const edgePaths = svg.selectAll('.edgePath');
   const edgeLabels = svg.selectAll('.edgeLabel');
 
+  // Create a regex pattern that matches the node ID as a complete word/segment
+  // This prevents matching 'A' in 'DATA' or 'ATLANTA'
+  const nodeIdPattern = new RegExp(`(^|[_-])${nodeId}([_-]|$)`);
+
   edgePaths.each(function () {
     const path = select(this);
     const pathId = path.attr('id') || '';
 
-    // Check if this edge connects to the moved node
-    // Edge IDs typically contain source and target node IDs
-    if (pathId.includes(nodeId)) {
-      // Get the path element
+    // Check if this edge connects to the moved node using precise pattern matching
+    if (nodeIdPattern.test(pathId)) {
+      // Get the path element and add visual feedback
       const pathElem = path.select('path');
       if (pathElem.size() > 0) {
-        const d = pathElem.attr('d');
-        if (d) {
-          // Parse and update path data
-          // For now, we mark the edge for visual feedback
-          // Full path recalculation would require more complex geometry
-          pathElem.classed('edge-updated', true);
-        }
+        // Mark edge for visual feedback - full path recalculation is not implemented
+        pathElem.classed('edge-updated', true);
       }
     }
   });
@@ -72,7 +79,7 @@ function updateConnectedEdges(
   edgeLabels.each(function () {
     const label = select(this);
     const labelId = label.attr('id') || '';
-    if (labelId.includes(nodeId)) {
+    if (nodeIdPattern.test(labelId)) {
       label.classed('edge-label-updated', true);
     }
   });
@@ -689,7 +696,7 @@ You have to call mermaid.initialize.`
       if (this === highlightedNode) {
         node.classed('highlighted', false);
         // Restore original styles
-        const shape = node.select('.label-container, rect, circle, ellipse, polygon, path');
+        const shape = node.select(NODE_SHAPE_SELECTOR);
         if (shape.size() > 0) {
           shape
             .style('stroke', null)
@@ -706,7 +713,7 @@ You have to call mermaid.initialize.`
       if (highlightedNode) {
         const prevNode = select(highlightedNode);
         prevNode.classed('highlighted', false);
-        const prevShape = prevNode.select('.label-container, rect, circle, ellipse, polygon, path');
+        const prevShape = prevNode.select(NODE_SHAPE_SELECTOR);
         if (prevShape.size() > 0) {
           prevShape
             .style('stroke', null)
@@ -719,7 +726,7 @@ You have to call mermaid.initialize.`
 
       // Highlight the clicked node
       node.classed('highlighted', true);
-      const shape = node.select('.label-container, rect, circle, ellipse, polygon, path');
+      const shape = node.select(NODE_SHAPE_SELECTOR);
       if (shape.size() > 0) {
         shape
           .style('stroke', defaultStroke)
@@ -736,7 +743,7 @@ You have to call mermaid.initialize.`
       if (highlightedNode) {
         const node = select(highlightedNode);
         node.classed('highlighted', false);
-        const shape = node.select('.label-container, rect, circle, ellipse, polygon, path');
+        const shape = node.select(NODE_SHAPE_SELECTOR);
         if (shape.size() > 0) {
           shape
             .style('stroke', null)
@@ -787,7 +794,8 @@ You have to call mermaid.initialize.`
       });
 
     // Apply drag handler to nodes
-    nodes.call(dragHandler as any);
+    // Cast is needed because d3's call() has complex generic types that don't align perfectly
+    nodes.call(dragHandler as DragBehavior<Element, unknown, SubjectPosition>);
 
     // Make nodes show grab cursor
     nodes.style('cursor', 'grab');
