@@ -1,80 +1,123 @@
-import { imgSnapshotTest, renderGraph } from '../../helpers/util.ts';
+import { renderGraph } from '../../helpers/util.ts';
 
 describe('Flowchart Interaction', () => {
-  describe('Interaction Enabled (default)', () => {
-    it('should render a flowchart with interaction enabled by default', () => {
-      imgSnapshotTest(
+  describe('Click to Highlight', () => {
+    it('should add highlighted class when node is clicked', () => {
+      renderGraph(
         `flowchart TD
         A[Start] --> B{Decision}
         B -->|Yes| C[Action 1]
         B -->|No| D[Action 2]
         C --> E[End]
         D --> E`,
-        { flowchart: { htmlLabels: true } }
+        { flowchart: { htmlLabels: true }, screenshot: false }
       );
+
+      // Initially no nodes should be highlighted
+      cy.get('.node.highlighted').should('not.exist');
+
+      // Click on node A (Start)
+      cy.get('.node').first().click({ force: true });
+
+      // Now node A should be highlighted
+      cy.get('.node.highlighted').should('exist');
     });
 
-    it('should render a left-right flowchart with interaction', () => {
-      imgSnapshotTest(
-        `flowchart LR
-        A[Input] --> B[Process] --> C[Output]`,
-        { flowchart: { htmlLabels: true } }
-      );
-    });
-
-    it('should render flowchart with subgraphs and interaction', () => {
-      imgSnapshotTest(
+    it('should remove highlighted class when highlighted node is clicked again', () => {
+      renderGraph(
         `flowchart TD
-        subgraph Frontend
-          A[UI] --> B[API Client]
-        end
-        subgraph Backend
-          C[API Server] --> D[Database]
-        end
-        B --> C`,
-        { flowchart: { htmlLabels: true } }
+        A[Start] --> B[End]`,
+        { flowchart: { htmlLabels: true }, screenshot: false }
       );
+
+      // Click to highlight
+      cy.get('.node').first().click({ force: true });
+      cy.get('.node.highlighted').should('exist');
+
+      // Click again to unhighlight
+      cy.get('.node').first().click({ force: true });
+      cy.get('.node.highlighted').should('not.exist');
+    });
+
+    it('should toggle highlight correctly on multiple clicks', () => {
+      renderGraph(
+        `flowchart TD
+        A[Start] --> B[End]`,
+        { flowchart: { htmlLabels: true }, screenshot: false }
+      );
+
+      const node = cy.get('.node').first();
+
+      // First click - highlight
+      node.click({ force: true });
+      cy.get('.node.highlighted').should('exist');
+
+      // Second click - unhighlight
+      node.click({ force: true });
+      cy.get('.node.highlighted').should('not.exist');
+
+      // Third click - highlight again
+      node.click({ force: true });
+      cy.get('.node.highlighted').should('exist');
+    });
+
+    it('should highlight connected edges when node is highlighted', () => {
+      renderGraph(
+        `flowchart TD
+        A[Start] --> B[End]`,
+        { flowchart: { htmlLabels: true }, screenshot: false }
+      );
+
+      // Click on first node
+      cy.get('.node').first().click({ force: true });
+
+      // Check that an edge path has the highlighted class
+      cy.get('path.highlighted').should('exist');
     });
   });
 
   describe('Interaction Disabled', () => {
-    it('should render flowchart with interaction explicitly disabled', () => {
-      imgSnapshotTest(
+    it('should not add highlighted class when interaction is disabled', () => {
+      renderGraph(
         `flowchart TD
-        A[Start] --> B[Middle] --> C[End]`,
+        A[Start] --> B[End]`,
         {
           flowchart: {
             htmlLabels: true,
             enableInteraction: false,
           },
+          screenshot: false,
         }
       );
-    });
-  });
 
-  describe('Complex Diagrams with Interaction', () => {
-    it('should render complex flowchart with multiple shapes and interaction', () => {
-      imgSnapshotTest(
-        `flowchart TD
-        A[Rectangle] --> B{Diamond}
-        B --> C((Circle))
-        B --> D[(Database)]
-        C --> E>Asymmetric]
-        D --> E`,
-        { flowchart: { htmlLabels: true } }
-      );
+      // Initially no nodes should be highlighted
+      cy.get('.node.highlighted').should('not.exist');
+
+      // Click on first node
+      cy.get('.node').first().click({ force: true });
+
+      // Node should still not be highlighted (interaction disabled)
+      cy.get('.node.highlighted').should('not.exist');
     });
 
-    it('should render flowchart with edge labels and interaction', () => {
-      imgSnapshotTest(
+    it('should not highlight edges when interaction is disabled', () => {
+      renderGraph(
         `flowchart TD
-        A[Start] --> B{Is it valid?}
-        B -->|Yes| C[Process]
-        B -->|No| D[Error]
-        C -->|Success| E[Done]
-        D -->|Retry| B`,
-        { flowchart: { htmlLabels: true } }
+        A[Start] --> B[End]`,
+        {
+          flowchart: {
+            htmlLabels: true,
+            enableInteraction: false,
+          },
+          screenshot: false,
+        }
       );
+
+      // Click on first node
+      cy.get('.node').first().click({ force: true });
+
+      // No edge paths should be highlighted
+      cy.get('path.highlighted').should('not.exist');
     });
   });
 });
