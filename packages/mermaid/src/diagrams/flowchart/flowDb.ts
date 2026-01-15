@@ -39,10 +39,10 @@ const MERMAID_DOM_ID_PREFIX = 'flowchart-';
  * @param d - The path d attribute string
  * @returns Array of point objects with x, y coordinates and optional control points
  */
-function parsePathD(d: string): Array<{ cmd: string; x: number; y: number; points?: number[] }> {
-  const result: Array<{ cmd: string; x: number; y: number; points?: number[] }> = [];
+function parsePathD(d: string): { cmd: string; x: number; y: number; points?: number[] }[] {
+  const result: { cmd: string; x: number; y: number; points?: number[] }[] = [];
   // Match path commands with their coordinates
-  const regex = /([MLHVCSQTAZ])([^MLHVCSQTAZ]*)/gi;
+  const regex = /([achlmqstvz])([^achlmqstvz]*)/gi;
   let match;
 
   while ((match = regex.exec(d)) !== null) {
@@ -118,7 +118,7 @@ function parsePathD(d: string): Array<{ cmd: string; x: number; y: number; point
  * @returns The reconstructed path d attribute string
  */
 function reconstructPathD(
-  points: Array<{ cmd: string; x: number; y: number; points?: number[] }>
+  points: { cmd: string; x: number; y: number; points?: number[] }[]
 ): string {
   return points
     .map((p) => {
@@ -230,10 +230,10 @@ function updateConnectedEdges(
       points[lastIdx].x += dx;
       points[lastIdx].y += dy;
       // If this point has control points, adjust the last control point
-      if (points[lastIdx].points && points[lastIdx].points!.length >= 4) {
-        const cp = points[lastIdx].points!;
-        cp[cp.length - 2] += dx;
-        cp[cp.length - 1] += dy;
+      const lastControlPoints = points[lastIdx].points;
+      if (lastControlPoints && lastControlPoints.length >= 4) {
+        lastControlPoints[lastControlPoints.length - 2] += dx;
+        lastControlPoints[lastControlPoints.length - 1] += dy;
       }
     }
 
