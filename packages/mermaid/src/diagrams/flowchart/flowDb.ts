@@ -877,14 +877,14 @@ You have to call mermaid.initialize.`
     // Click on SVG background to deselect any highlighted node
     // Use a flag to prevent SVG click from interfering with node click handling
     let nodeClickHandled = false;
-    
+
     svg.on('click', () => {
       // If a node click was just handled, don't process SVG background click
       if (nodeClickHandled) {
         nodeClickHandled = false;
         return;
       }
-      
+
       if (highlightedNode) {
         const node = select(highlightedNode);
         node.classed('highlighted', false);
@@ -939,12 +939,12 @@ You have to call mermaid.initialize.`
       })
       .on('end', function () {
         select(this).classed('dragging', false);
-        
+
         // If no drag occurred, treat as a click for highlighting
         if (!hasDragged) {
           // Mark that we're handling a node click to prevent SVG click handler interference
           nodeClickHandled = true;
-          
+
           const currentNode = this as Element;
           const node = select(currentNode);
           const nodeId = node.attr('data-id') || node.attr('id') || '';
