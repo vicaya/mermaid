@@ -1723,6 +1723,21 @@
           securityLevel: 'loose',
           flowchart: { curve: 'basis' },
         });
+
+        // Get all mermaid containers and re-render them
+        const mermaidElements = document.querySelectorAll('.mermaid');
+        for (const elem of mermaidElements) {
+          // Get the original diagram source from the data attribute or text content
+          const source = elem.getAttribute('data-original-source') || elem.textContent;
+          if (!elem.getAttribute('data-original-source')) {
+            // First time - store the original source
+            elem.setAttribute('data-original-source', source);
+          }
+          // Clear current content
+          elem.innerHTML = elem.getAttribute('data-original-source');
+          // Remove processed attribute so mermaid will re-render it
+          elem.removeAttribute('data-processed');
+        }
         // Re-render all diagrams
         await window.mermaidInstance.run();
       }
