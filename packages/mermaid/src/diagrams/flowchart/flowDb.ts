@@ -147,6 +147,28 @@ function reconstructPathD(
 }
 
 /**
+ * Clean a node ID by removing the flowchart prefix and trailing numbers.
+ * @param nodeId - The node ID to clean (e.g., "flowchart-A-0")
+ * @returns The cleaned node ID (e.g., "A")
+ */
+function cleanNodeId(nodeId: string): string {
+  return nodeId.replace(/^flowchart-/, '').replace(/-\d+$/, '');
+}
+
+/**
+ * Create regex patterns to match edge IDs for a given node.
+ * Edge IDs follow pattern like "L_A_B_0" where A is source and B is target.
+ * @param nodeId - The cleaned node ID
+ * @returns Object with sourcePattern and targetPattern
+ */
+function createEdgePatterns(nodeId: string): { sourcePattern: RegExp; targetPattern: RegExp } {
+  return {
+    sourcePattern: new RegExp(`^L_${nodeId}_`),
+    targetPattern: new RegExp(`_${nodeId}_\\d+$`),
+  };
+}
+
+/**
  * Helper function to update connected edges when a node is dragged.
  * Updates edge paths to follow the moved node by adjusting start/end points.
  * @param svg - The SVG selection
@@ -162,16 +184,7 @@ function updateConnectedEdges(
 ) {
   // Find edge paths - they are direct children of .edgePaths group with IDs like L_A_B_0
   const edgePathsGroup = svg.select('.edgePaths');
-
-  // Create regex patterns to match edge IDs
-  // Edge IDs follow pattern like "L_A_B_0" where A is source and B is target
-  // Also handle flowchart style node IDs like "flowchart-A-0"
-  const cleanNodeId = nodeId.replace(/^flowchart-/, '').replace(/-\d+$/, '');
-
-  // Pattern to detect if this node is the SOURCE of the edge (appears after L_)
-  const sourcePattern = new RegExp(`^L_${cleanNodeId}_`);
-  // Pattern to detect if this node is the TARGET of the edge (appears before the final number)
-  const targetPattern = new RegExp(`_${cleanNodeId}_\\d+$`);
+  const { sourcePattern, targetPattern } = createEdgePatterns(cleanNodeId(nodeId));
 
   // Update edge paths
   edgePathsGroup.selectAll('path').each(function () {
@@ -239,12 +252,7 @@ function highlightConnectedEdges(
   highlight: boolean
 ) {
   const edgePathsGroup = svg.select('.edgePaths');
-  const cleanNodeId = nodeId.replace(/^flowchart-/, '').replace(/-\d+$/, '');
-
-  // Pattern to detect if this node is the SOURCE of the edge
-  const sourcePattern = new RegExp(`^L_${cleanNodeId}_`);
-  // Pattern to detect if this node is the TARGET of the edge
-  const targetPattern = new RegExp(`_${cleanNodeId}_\\d+$`);
+  const { sourcePattern, targetPattern } = createEdgePatterns(cleanNodeId(nodeId));
 
   edgePathsGroup.selectAll('path').each(function () {
     const pathElem = select(this);
