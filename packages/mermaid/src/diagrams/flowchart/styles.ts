@@ -190,7 +190,13 @@ const getStyles = (options: FlowChartStyleOptions) =>
   .node.highlighted polygon,
   .node.highlighted path,
   .node.highlighted .label-container {
-    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 0 5px rgba(0, 100, 200, 0.6));
+  }
+
+  /* Highlighted edge styles */
+  .edgePath path.highlighted {
+    filter: drop-shadow(0 0 3px rgba(0, 100, 200, 0.6));
+    stroke-width: 2.5px;
   }
 
   .node.dragging {

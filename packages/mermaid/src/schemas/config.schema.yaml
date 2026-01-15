@@ -2167,28 +2167,9 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
         default: true
         description: |
           Enables interactive features for flowchart nodes:
-          - Click to highlight a node
+          - Click to highlight a node (uses drop shadow)
           - Drag to rearrange nodes while keeping edges connected
-
-      highlightStyle:
-        type: object
-        description: |
-          Configuration for node highlight styles when enableInteraction is true.
-        default:
-          stroke: '#ff0000'
-          strokeWidth: '2px'
-        properties:
-          stroke:
-            type: string
-            default: '#ff0000'
-            description: The stroke color for highlighted nodes.
-          strokeWidth:
-            type: string
-            default: '2px'
-            description: The stroke width for highlighted nodes.
-          fill:
-            type: string
-            description: The fill color for highlighted nodes. If not specified, uses the original fill.
+          When a node is highlighted, its connected edges are also highlighted.
 
   SankeyLinkColor:
     description: |

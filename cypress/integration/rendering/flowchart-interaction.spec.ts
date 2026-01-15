@@ -37,59 +37,6 @@ describe('Flowchart Interaction', () => {
     });
   });
 
-  describe('Custom Highlight Style', () => {
-    it('should render flowchart with custom red highlight style', () => {
-      imgSnapshotTest(
-        `flowchart TD
-        A[Start] --> B[End]`,
-        {
-          flowchart: {
-            htmlLabels: true,
-            highlightStyle: {
-              stroke: '#ff0000',
-              strokeWidth: '3px',
-            },
-          },
-        }
-      );
-    });
-
-    it('should render flowchart with custom green highlight style', () => {
-      imgSnapshotTest(
-        `flowchart TD
-        A[Start] --> B{Decision}
-        B -->|Yes| C[Action 1]
-        B -->|No| D[Action 2]`,
-        {
-          flowchart: {
-            htmlLabels: true,
-            highlightStyle: {
-              stroke: '#00ff00',
-              strokeWidth: '4px',
-            },
-          },
-        }
-      );
-    });
-
-    it('should render flowchart with custom blue highlight style and fill', () => {
-      imgSnapshotTest(
-        `flowchart LR
-        A[Node A] --> B[Node B] --> C[Node C]`,
-        {
-          flowchart: {
-            htmlLabels: true,
-            highlightStyle: {
-              stroke: '#0000ff',
-              strokeWidth: '2px',
-              fill: '#e0e0ff',
-            },
-          },
-        }
-      );
-    });
-  });
-
   describe('Interaction Disabled', () => {
     it('should render flowchart with interaction explicitly disabled', () => {
       imgSnapshotTest(

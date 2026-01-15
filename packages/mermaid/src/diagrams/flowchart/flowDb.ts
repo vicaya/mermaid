@@ -33,9 +33,6 @@ interface LinkData {
 
 const MERMAID_DOM_ID_PREFIX = 'flowchart-';
 
-/** CSS selector for node shape elements */
-const NODE_SHAPE_SELECTOR = '.label-container, rect, circle, ellipse, polygon, path';
-
 /**
  * Parse an SVG path d attribute and extract points.
  * Handles M (moveto), L (lineto), C (curveto), Q (quadratic), and other path commands.
@@ -165,7 +162,6 @@ function updateConnectedEdges(
 ) {
   // Find edge paths - they are direct children of .edgePaths group with IDs like L_A_B_0
   const edgePathsGroup = svg.select('.edgePaths');
-  const edgeLabelsGroup = svg.select('.edgeLabels');
 
   // Create regex patterns to match edge IDs
   // Edge IDs follow pattern like "L_A_B_0" where A is source and B is target
@@ -228,77 +224,38 @@ function updateConnectedEdges(
     // Reconstruct and apply the new path
     const newD = reconstructPathD(points);
     pathElem.attr('d', newD);
-
-    // Add visual feedback class
-    pathElem.classed('edge-updated', true);
   });
+}
 
-  // Build a list of edge IDs that connect to the dragged node
-  const connectedEdgeIds: Set<string> = new Set();
-  let hasSourceAndTargetEdge = false;
-  
+/**
+ * Helper function to highlight edges connected to a node.
+ * @param svg - The SVG selection
+ * @param nodeId - The ID of the node
+ * @param highlight - Whether to highlight (true) or remove highlight (false)
+ */
+function highlightConnectedEdges(
+  svg: ReturnType<typeof select>,
+  nodeId: string,
+  highlight: boolean
+) {
+  const edgePathsGroup = svg.select('.edgePaths');
+  const cleanNodeId = nodeId.replace(/^flowchart-/, '').replace(/-\d+$/, '');
+
+  // Pattern to detect if this node is the SOURCE of the edge
+  const sourcePattern = new RegExp(`^L_${cleanNodeId}_`);
+  // Pattern to detect if this node is the TARGET of the edge
+  const targetPattern = new RegExp(`_${cleanNodeId}_\\d+$`);
+
   edgePathsGroup.selectAll('path').each(function () {
     const pathElem = select(this);
     const pathId = pathElem.attr('id') || '';
-    
-    const pathIsSource = sourcePattern.exec(pathId) !== null;
-    const pathIsTarget = targetPattern.exec(pathId) !== null;
-    
-    if (pathIsSource || pathIsTarget) {
-      connectedEdgeIds.add(pathId);
-      if (pathIsSource && pathIsTarget) {
-        hasSourceAndTargetEdge = true;
-      }
-    }
-  });
 
-  // Update edge labels - only for labels that belong to edges connected to the dragged node
-  // Edge labels have an id attribute that matches the edge path id pattern
-  edgeLabelsGroup.selectAll('.edgeLabel').each(function () {
-    const label = select(this);
-    
-    // Get label's id - it may be on the label element or a child foreignObject
-    let labelId = label.attr('id') || '';
-    
-    // If no id on the label, try to find one in a child element
-    if (!labelId) {
-      const foreignObject = label.select('foreignObject');
-      if (!foreignObject.empty()) {
-        labelId = foreignObject.attr('id') || '';
-      }
-    }
-    
-    // Check if this label's id corresponds to a connected edge
-    // Edge labels often have ids like "L_A_B_0" matching their edge
-    const labelIsConnected = connectedEdgeIds.has(labelId);
-    
-    if (!labelIsConnected) {
-      return;
-    }
-    
-    const labelTransform = label.attr('transform') || '';
-    const translateMatch = /translate\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/.exec(labelTransform);
-    
-    if (!translateMatch) {
-      return;
-    }
+    const isSource = sourcePattern.exec(pathId) !== null;
+    const isTarget = targetPattern.exec(pathId) !== null;
 
-    let x = parseFloat(translateMatch[1]);
-    let y = parseFloat(translateMatch[2]);
-
-    // Move label proportionally (half the distance since label is usually in the middle)
-    if (hasSourceAndTargetEdge) {
-      // Edge connects same node to itself - move fully
-      x += dx;
-      y += dy;
-    } else {
-      // Move label half the distance to stay centered on edge
-      x += dx / 2;
-      y += dy / 2;
+    if (isSource || isTarget) {
+      pathElem.classed('highlighted', highlight);
     }
-
-    label.attr('transform', `translate(${x}, ${y})`);
-    label.classed('edge-label-updated', true);
   });
 }
 
@@ -885,8 +842,9 @@ You have to call mermaid.initialize.`
 
   /**
    * Sets up interactive features for flowchart nodes:
-   * - Click to highlight a node
+   * - Click to highlight a node (uses drop shadow via CSS)
    * - Drag to rearrange nodes while keeping edges connected
+   * When a node is highlighted, connected edges are also highlighted.
    */
   private setupInteraction(element: Element) {
     const flowchartConfig = this.config.flowchart;
@@ -896,19 +854,16 @@ You have to call mermaid.initialize.`
 
     const svg = select(element).select('svg');
     const nodes = svg.selectAll<SVGGElement, unknown>('g.node');
-    const highlightStyle = flowchartConfig.highlightStyle || {};
-    const defaultStroke = highlightStyle.stroke || '#ff0000';
-    const defaultStrokeWidth = highlightStyle.strokeWidth || '2px';
-    const highlightFill = highlightStyle.fill;
 
-    // Track currently highlighted node
+    // Track currently highlighted node and its ID for edge highlighting
     let highlightedNode: Element | null = null;
+    let highlightedNodeId: string | null = null;
 
     // Click on SVG background to deselect any highlighted node
     // Use a flag to prevent SVG click from interfering with node click handling
     let nodeClickHandled = false;
     
-    svg.on('click', function () {
+    svg.on('click', () => {
       // If a node click was just handled, don't process SVG background click
       if (nodeClickHandled) {
         nodeClickHandled = false;
@@ -918,16 +873,12 @@ You have to call mermaid.initialize.`
       if (highlightedNode) {
         const node = select(highlightedNode);
         node.classed('highlighted', false);
-        const shape = node.select(NODE_SHAPE_SELECTOR);
-        if (shape.size() > 0) {
-          shape
-            .style('stroke', null)
-            .style('stroke-width', null);
-          if (highlightFill) {
-            shape.style('fill', null);
-          }
+        // Remove edge highlighting
+        if (highlightedNodeId) {
+          highlightConnectedEdges(svg, highlightedNodeId, false);
         }
         highlightedNode = null;
+        highlightedNodeId = null;
       }
     });
 
@@ -981,21 +932,14 @@ You have to call mermaid.initialize.`
           
           const currentNode = this as Element;
           const node = select(currentNode);
+          const nodeId = node.attr('data-id') || node.attr('id') || '';
 
           // If clicking on the already highlighted node, deselect it
           if (currentNode === highlightedNode) {
             node.classed('highlighted', false);
-            // Restore original styles
-            const shape = node.select(NODE_SHAPE_SELECTOR);
-            if (shape.size() > 0) {
-              shape
-                .style('stroke', null)
-                .style('stroke-width', null);
-              if (highlightFill) {
-                shape.style('fill', null);
-              }
-            }
+            highlightConnectedEdges(svg, nodeId, false);
             highlightedNode = null;
+            highlightedNodeId = null;
             return;
           }
 
@@ -1003,29 +947,16 @@ You have to call mermaid.initialize.`
           if (highlightedNode) {
             const prevNode = select(highlightedNode);
             prevNode.classed('highlighted', false);
-            const prevShape = prevNode.select(NODE_SHAPE_SELECTOR);
-            if (prevShape.size() > 0) {
-              prevShape
-                .style('stroke', null)
-                .style('stroke-width', null);
-              if (highlightFill) {
-                prevShape.style('fill', null);
-              }
+            if (highlightedNodeId) {
+              highlightConnectedEdges(svg, highlightedNodeId, false);
             }
           }
 
-          // Highlight the clicked node
+          // Highlight the clicked node using CSS class (drop shadow applied via CSS)
           node.classed('highlighted', true);
-          const shape = node.select(NODE_SHAPE_SELECTOR);
-          if (shape.size() > 0) {
-            shape
-              .style('stroke', defaultStroke)
-              .style('stroke-width', defaultStrokeWidth);
-            if (highlightFill) {
-              shape.style('fill', highlightFill);
-            }
-          }
+          highlightConnectedEdges(svg, nodeId, true);
           highlightedNode = currentNode;
+          highlightedNodeId = nodeId;
         }
       });
 
