@@ -45,9 +45,33 @@
       body.dark-mode .dark-mode-toggle:hover {
         background-color: #ccc;
       }
+      .theme-selector {
+        position: fixed;
+        top: 10px;
+        right: 150px;
+        padding: 8px 12px;
+        background-color: #333;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 1000;
+        font-size: 14px;
+      }
+      body.dark-mode .theme-selector {
+        background-color: #eee;
+        color: #333;
+      }
     </style>
   </head>
   <body>
+    <select class="theme-selector" onchange="changeTheme(this.value)">
+      <option value="default">🎨 Default Theme</option>
+      <option value="base">Base Theme</option>
+      <option value="dark">Dark Theme</option>
+      <option value="forest" selected>Forest Theme</option>
+      <option value="neutral">Neutral Theme</option>
+    </select>
     <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌙 Dark Mode</button>
     <h1>Comparison "graph vs. flowchart"</h1>
     <h2>Sample 1</h2>
@@ -1658,6 +1682,11 @@
 
     <script type="module">
       import mermaid from './mermaid.esm.mjs';
+
+      // Store the current theme and make mermaid available globally for re-rendering
+      window.currentTheme = 'forest';
+      window.mermaidInstance = mermaid;
+
       mermaid.initialize({
         theme: 'forest',
         logLevel: 3,
@@ -1683,6 +1712,19 @@
         } else {
           button.textContent = '🌙 Dark Mode';
         }
+      }
+
+      async function changeTheme(theme) {
+        window.currentTheme = theme;
+        // Re-initialize mermaid with the new theme
+        window.mermaidInstance.initialize({
+          theme: theme,
+          logLevel: 3,
+          securityLevel: 'loose',
+          flowchart: { curve: 'basis' },
+        });
+        // Re-render all diagrams
+        await window.mermaidInstance.run();
       }
     </script>
   </body>
