@@ -34,8 +34,9 @@ describe('Flowchart Interaction', () => {
       cy.get('.node').first().click({ force: true });
       cy.get('.node.highlighted').should('exist');
 
-      // Click again to unhighlight
-      cy.get('.node').first().click({ force: true });
+      // Wait a moment for click handling to complete, then click again to unhighlight
+      cy.wait(100);
+      cy.get('.node.highlighted').click({ force: true });
       cy.get('.node.highlighted').should('not.exist');
     });
 
@@ -46,18 +47,18 @@ describe('Flowchart Interaction', () => {
         { flowchart: { htmlLabels: true }, screenshot: false }
       );
 
-      const node = cy.get('.node').first();
-
       // First click - highlight
-      node.click({ force: true });
+      cy.get('.node').first().click({ force: true });
       cy.get('.node.highlighted').should('exist');
 
       // Second click - unhighlight
-      node.click({ force: true });
+      cy.wait(100);
+      cy.get('.node.highlighted').click({ force: true });
       cy.get('.node.highlighted').should('not.exist');
 
       // Third click - highlight again
-      node.click({ force: true });
+      cy.wait(100);
+      cy.get('.node').first().click({ force: true });
       cy.get('.node.highlighted').should('exist');
     });
 
