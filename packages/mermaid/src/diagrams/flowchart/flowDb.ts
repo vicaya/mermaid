@@ -182,8 +182,11 @@ function updateConnectedEdges(
   dx: number,
   dy: number
 ) {
-  // Find edge paths - they are direct children of .edgePaths group with IDs like L_A_B_0
-  const edgePathsGroup = svg.select('.edgePaths');
+  // Find edge paths - try both selectors (older dagre uses .edgePaths, newer uses .edges/.edgePath)
+  let edgePathsGroup = svg.select('.edgePaths');
+  if (edgePathsGroup.empty()) {
+    edgePathsGroup = svg.select('.edges');
+  }
   const { sourcePattern, targetPattern } = createEdgePatterns(cleanNodeId(nodeId));
 
   // Update edge paths
@@ -251,7 +254,11 @@ function highlightConnectedEdges(
   nodeId: string,
   highlight: boolean
 ) {
-  const edgePathsGroup = svg.select('.edgePaths');
+  // Try both edge path group selectors (older dagre uses .edgePaths, newer uses .edges/.edgePath)
+  let edgePathsGroup = svg.select('.edgePaths');
+  if (edgePathsGroup.empty()) {
+    edgePathsGroup = svg.select('.edges');
+  }
   const { sourcePattern, targetPattern } = createEdgePatterns(cleanNodeId(nodeId));
 
   edgePathsGroup.selectAll('path').each(function () {

@@ -194,7 +194,9 @@ const getStyles = (options: FlowChartStyleOptions) =>
   }
 
   /* Highlighted edge styles */
-  .edgePath path.highlighted {
+  .edgePath path.highlighted,
+  .edgePaths path.highlighted,
+  .edges path.highlighted {
     filter: drop-shadow(0 0 3px rgba(0, 100, 200, 0.6));
     stroke-width: 2.5px;
   }
